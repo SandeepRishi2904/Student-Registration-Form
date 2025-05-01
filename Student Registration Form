@@ -1,0 +1,273 @@
+from tkinter import *
+from datetime import date
+from tkinter import filedialog, messagebox
+from PIL import Image, ImageTk
+import os
+from tkinter.ttk import Combobox
+import mysql.connector
+import base64
+
+# -------------------- Window Setup --------------------
+background = "#06283D"
+framebg = "#EDEDED"
+framefg = "#06283D"
+
+root = Tk()
+root.title("Students Registration System")
+root.geometry("1250x750+210+100")
+root.config(bg=background)
+
+# -------------------- Database Setup --------------------
+db = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="",
+    database="academic_records_db"
+)
+cursor = db.cursor()
+
+# -------------------- Functions --------------------
+def Exit():
+    root.destroy()
+
+filename = None
+
+def showimage():
+    global filename, img
+    filename = filedialog.askopenfilename(
+        initialdir=os.getcwd(),
+        title="Select image file",
+        filetype=(("JPG File", "*.jpg"), ("PNG File", "*.png"), ("All Files", "*.*"))
+    )
+    img = Image.open(filename)
+    resized_image = img.resize((190, 190))
+    photo2 = ImageTk.PhotoImage(resized_image)
+    lbl.config(image=photo2)
+    lbl.image = photo2
+
+def reg_no():
+    cursor.execute("SELECT MAX(registration_no) FROM students")
+    result = cursor.fetchone()
+    max_reg_no = result[0]
+    if max_reg_no is None:
+        Registration.set(1)
+    else:
+        Registration.set(max_reg_no + 1)
+
+def Clear():
+    global img
+    Name.set('')
+    DOB.set('')
+    Religion.set('')
+    Skill.set('')
+    F_name.set('')
+    Father_Occupation.set('')
+    M_name.set('')
+    Mother_Occupation.set('')
+    Class.set("Select Class")
+    reg_no()
+    saveButton.config(state='normal')
+    img1 = PhotoImage(file=r"C:\Users\jbsan\OneDrive\Desktop\image upload.png")
+    lbl.config(image=img1)
+    lbl.image = img1
+    img = ""
+
+def Save():
+    R1 = Registration.get()
+    N1 = Name.get()
+    C1 = Class.get()
+    G1 = gender
+    D2 = DOB.get()
+    D1 = Date.get()
+    Re1 = Religion.get()
+    S1 = Skill.get()
+    fathername = F_name.get()
+    mothername = M_name.get()
+    F1 = Father_Occupation.get()
+    M1 = Mother_Occupation.get()
+
+    if N1 == "" or C1 == "Select Class" or D2 == "" or Re1 == "" or S1 == "" or fathername == "" or mothername == "" or F1 == "" or M1 == "":
+        messagebox.showerror("Error", "Few data is Missing!")
+    else:
+        if filename:
+            with open(filename, "rb") as image_file:
+                profile_image = base64.b64encode(image_file.read())
+        else:
+            profile_image = None
+
+        cursor.execute("""
+            INSERT INTO students (
+                registration_no, name, class, gender, dob, registration_date,
+                religion, skill, father_name, mother_name,
+                father_occupation, mother_occupation, profile_image
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (R1, N1, C1, G1, D2, D1, Re1, S1, fathername, mothername, F1, M1, profile_image))
+        db.commit()
+        messagebox.showinfo("Info", "Successfully data entered!")
+        Clear()
+        reg_no()
+
+def search():
+    tx = Search.get()
+    Clear()
+    saveButton.config(state='disable')
+    cursor.execute("SELECT * FROM students WHERE registration_no = %s", (tx,))
+    result = cursor.fetchone()
+    if result:
+        Registration.set(result[0])
+        Name.set(result[1])
+        Class.set(result[2])
+        if result[3] == 'Female':
+            R2.select()
+        else:
+            R1.select()
+        DOB.set(result[4])
+        Date.set(result[5])
+        Religion.set(result[6])
+        Skill.set(result[7])
+        F_name.set(result[8])
+        M_name.set(result[9])
+        Father_Occupation.set(result[10])
+        Mother_Occupation.set(result[11])
+        if result[12]:
+            profile_image = base64.b64decode(result[12])
+            with open("temp_image.jpg", "wb") as temp_image:
+                temp_image.write(profile_image)
+            img = Image.open("temp_image.jpg")
+            resized_image = img.resize((190, 190))
+            photo2 = ImageTk.PhotoImage(resized_image)
+            lbl.config(image=photo2)
+            lbl.image = photo2
+    else:
+        messagebox.showerror("Invalid", "Invalid registration number!")
+
+def Update():
+    R1 = Registration.get()
+    N1 = Name.get()
+    C1 = Class.get()
+    G1 = gender
+    D2 = DOB.get()
+    D1 = Date.get()
+    Re1 = Religion.get()
+    S1 = Skill.get()
+    fathername = F_name.get()
+    mothername = M_name.get()
+    F1 = Father_Occupation.get()
+    M1 = Mother_Occupation.get()
+
+    if img:
+        with open(filename, "rb") as image_file:
+            profile_image = base64.b64encode(image_file.read())
+    else:
+        profile_image = None
+
+    cursor.execute("""
+        UPDATE students SET name=%s, class=%s, gender=%s, dob=%s,
+        registration_date=%s, religion=%s, skill=%s, father_name=%s,
+        mother_name=%s, father_occupation=%s, mother_occupation=%s,
+        profile_image=%s WHERE registration_no=%s
+    """, (N1, C1, G1, D2, D1, Re1, S1, fathername, mothername, F1, M1, profile_image, R1))
+    db.commit()
+    messagebox.showinfo("Update", "Updated Successfully!")
+    Clear()
+
+def selections():
+    global gender
+    value = radio.get()
+    gender = "Male" if value == 1 else "Female"
+
+# -------------------- GUI Layout --------------------
+Label(root, text="Email: jbsandeeprishi@gmail.com", height=3, bg="#f0687c", anchor='e').pack(side=TOP, fill=X)
+Label(root, text="STUDENT'S REGISTRATION", bg="#c36464", fg="#fff", font='arial 20 bold').pack(side=TOP, fill=X)
+
+Search = StringVar()
+Entry(root, textvariable=Search, width=15, bd=2, font="arial 20").place(x=820, y=70)
+
+imageicon3 = PhotoImage(file=r"C:\Users\jbsan\OneDrive\Desktop\search image.png")
+Button(root, text="Search", compound=LEFT, image=imageicon3, width=123, bd=2, bg='#68ddfa', font="arial 15 bold", command=search).place(x=1060, y=70)
+
+imageicon4 = PhotoImage(file=r"C:\Users\jbsan\OneDrive\Desktop\images.png")
+Button(root, image=imageicon4, bg="#c36464", command=Update).place(x=110, y=64)
+
+Label(root, text="Registration No:", font="arial 13", fg=framefg, bg=background).place(x=30, y=150)
+Label(root, text="Date:", font="arial 13", fg=framefg, bg=background).place(x=500, y=150)
+
+Registration = IntVar()
+Date = StringVar()
+reg_no()
+
+Entry(root, textvariable=Registration, width=15, font="arial 10").place(x=160, y=150)
+
+today = date.today()
+Date.set(today.strftime("%Y-%m-%d"))
+Entry(root, textvariable=Date, width=15, font="arial 10").place(x=550, y=150)
+
+# -------------------- Student Details --------------------
+obj = LabelFrame(root, text="Student's Details", font=20, bd=2, width=900, bg=framebg, fg=framefg, height=250, relief=GROOVE)
+obj.place(x=30, y=200)
+
+Label(obj, text="Full Name:", font="arial 13", bg=framebg, fg=framefg).place(x=30, y=50)
+Label(obj, text="Date of Birth:", font="arial 13", bg=framebg, fg=framefg).place(x=30, y=100)
+Label(obj, text="Gender:", font="arial 13", bg=framebg, fg=framefg).place(x=30, y=150)
+Label(obj, text="Class:", font="arial 13", bg=framebg, fg=framefg).place(x=500, y=50)
+Label(obj, text="Religion:", font="arial 13", bg=framebg, fg=framefg).place(x=500, y=100)
+Label(obj, text="Skills:", font="arial 13", bg=framebg, fg=framefg).place(x=500, y=150)
+
+Name = StringVar()
+Entry(obj, textvariable=Name, width=20, font="arial 10").place(x=160, y=50)
+
+DOB = StringVar()
+Entry(obj, textvariable=DOB, width=20, font="arial 10").place(x=160, y=100)
+
+radio = IntVar()
+R1 = Radiobutton(obj, text="Male", variable=radio, value=1, bg=framebg, fg=framefg, command=selections)
+R1.place(x=150, y=150)
+R2 = Radiobutton(obj, text="Female", variable=radio, value=2, bg=framebg, fg=framefg, command=selections)
+R2.place(x=200, y=150)
+
+Religion = StringVar()
+Entry(obj, textvariable=Religion, width=20, font="arial 10").place(x=630, y=100)
+
+Skill = StringVar()
+Entry(obj, textvariable=Skill, width=20, font="arial 10").place(x=630, y=150)
+
+Class = Combobox(obj, values=[str(i) for i in range(1, 13)], font="Roboto 10", width=17, state="r")
+Class.place(x=630, y=50)
+Class.set("Select Class")
+
+# -------------------- Parent Details --------------------
+obj2 = LabelFrame(root, text="Parent's Details", font=20, bd=2, width=900, bg=framebg, fg=framefg, height=220, relief=GROOVE)
+obj2.place(x=30, y=470)
+
+Label(obj2, text="Father's Name:", font="arial 13", bg=framebg, fg=framefg).place(x=30, y=50)
+Label(obj2, text="Occupation:", font="arial 13", bg=framebg, fg=framefg).place(x=30, y=100)
+Label(obj2, text="Mother's Name:", font="arial 13", bg=framebg, fg=framefg).place(x=500, y=50)
+Label(obj2, text="Occupation:", font="arial 13", bg=framebg, fg=framefg).place(x=500, y=100)
+
+F_name = StringVar()
+Entry(obj2, textvariable=F_name, width=20, font="arial 10").place(x=160, y=50)
+
+Father_Occupation = StringVar()
+Entry(obj2, textvariable=Father_Occupation, width=20, font="arial 10").place(x=160, y=100)
+
+M_name = StringVar()
+Entry(obj2, textvariable=M_name, width=20, font="arial 10").place(x=630, y=50)
+
+Mother_Occupation = StringVar()
+Entry(obj2, textvariable=Mother_Occupation, width=20, font="arial 10").place(x=630, y=100)
+
+# -------------------- Image and Buttons --------------------
+f = Frame(root, bd=3, bg="black", width=200, height=200, relief=GROOVE)
+f.place(x=1000, y=150)
+
+img = PhotoImage(file=r"C:\Users\jbsan\OneDrive\Desktop\image upload.png")
+lbl = Label(f, bg="black", image=img)
+lbl.place(x=0, y=0)
+
+Button(root, text="Upload", width=19, height=2, font="arial 12 bold", bg="lightblue", command=showimage).place(x=1000, y=370)
+saveButton = Button(root, text="Save", width=19, height=2, font="arial 12 bold", bg="lightgreen", command=Save)
+saveButton.place(x=1000, y=450)
+Button(root, text="Reset", width=19, height=2, font="arial 12 bold", bg="lightpink", command=Clear).place(x=1000, y=530)
+Button(root, text="Exit", width=19, height=2, font="arial 12 bold", bg="grey", command=Exit).place(x=1000, y=610)
+
+root.mainloop()
